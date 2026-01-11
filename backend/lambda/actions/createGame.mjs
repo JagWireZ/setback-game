@@ -4,14 +4,14 @@ import { generateRounds } from "../helpers/generateRounds.mjs";
 import { generateState } from "../helpers/generateState.mjs";
 import { cleanState } from "../helpers/cleanState.mjs";
 
-import { generatePresignedUrl, putPrivate, putState } from "../data/index.mjs";
+import { putItem } from "../data/putItem.mjs";
 
 const validate = (payload) => {
   if (payload.maxCards == null) throw new Error("maxCards is required");
   if (payload.playerName == null) throw new Error("playerName is required");
 };
 
-export const apply = async ({ payload, s3 }) => {
+export const apply = async ({ payload, dynamo }) => {
   validate(payload);
 
   const { maxCards, playerName } = payload;
@@ -31,7 +31,7 @@ export const apply = async ({ payload, s3 }) => {
   const rounds = generateRounds({ maxCards });
 
   //
-  // 3. Build initial state.json (public)
+  // 3. Build initial public state
   //
   const base = generateState();
 
@@ -51,7 +51,7 @@ export const apply = async ({ payload, s3 }) => {
   };
 
   //
-  // 4. Build private.json (never exposed to clients)
+  // 4. Build private section (never exposed to clients)
   //
   const priv = {
     ownerToken: playerToken,
@@ -62,15 +62,22 @@ export const apply = async ({ payload, s3 }) => {
   };
 
   //
-  // 5. Persist both objects to S3
+  // 5. Build DynamoDB item (single record)
   //
-  await putState({ s3, state, gameId });
-  await putPrivate({ s3, gameId, privateData: priv });
+  const item = {
+    gameId,
+    state,
+    priv
+  };
 
   //
-  // 6. Generate presigned URL for the client to fetch state.json
+  // 6. Persist to DynamoDB
   //
-  const url = await generatePresignedUrl({ s3, gameId });
+  await putItem({
+    client: dynamo.client,
+    tableName: dynamo.tableName,
+    item
+  });
 
   //
   // 7. Return initial state to the client
@@ -79,7 +86,6 @@ export const apply = async ({ payload, s3 }) => {
     gameId,
     state: cleanState({ state, playerId: player.playerId }),
     playerId: player.playerId,
-    playerToken,
-    url
+    playerToken
   };
 };

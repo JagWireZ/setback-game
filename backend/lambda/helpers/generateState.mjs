@@ -1,3 +1,5 @@
+import { PHASES } from "../engine/phases.mjs";
+
 export const generateState = () => ({
   gameId: null,
   version: 1,
@@ -11,9 +13,10 @@ export const generateState = () => ({
   players: [],
 
   phase: {
-    roundIndex: null,
+    name: PHASES.LOBBY,   // canonical top-level phase
+    step: null,           // optional sub-step inside a phase
+    roundIndex: 0,
     dealerId: null,
-    step: "lobby",
     turnPlayerId: null,
     bids: {}
   },

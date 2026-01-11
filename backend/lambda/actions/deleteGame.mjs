@@ -1,9 +1,8 @@
-// actions/deleteGame.mjs
-
-import { deleteState, deletePrivate, getPrivate } from "../data/index.mjs";
+import { getItem } from "../data/getItem.mjs";
+import { deleteItem } from "../data/deleteItem.mjs";
 
 //
-// 0. Validation (moved to top, consistent with createGame)
+// 0. Validation (top-level, consistent with createGame)
 //
 const validate = ({ payload, priv, playerToken }) => {
   if (payload.gameId == null) {
@@ -19,19 +18,25 @@ const validate = ({ payload, priv, playerToken }) => {
   }
 };
 
-export const apply = async ({ payload, auth, s3 }) => {
+export const apply = async ({ payload, auth, dynamo }) => {
   const { gameId } = payload;
   const { playerToken } = auth;
 
   //
-  // 1. Load private.json (contains ownerToken)
+  // 1. Load full game item (state + priv)
   //
-  let priv;
+  let item;
   try {
-    priv = await getPrivate({ s3, gameId });
+    item = await getItem({
+      client: dynamo.client,
+      tableName: dynamo.tableName,
+      gameId
+    });
   } catch {
     throw new Error("Game not found");
   }
+
+  const { priv } = item;
 
   //
   // 2. Validate permissions + payload
@@ -39,10 +44,13 @@ export const apply = async ({ payload, auth, s3 }) => {
   validate({ payload, priv, playerToken });
 
   //
-  // 3. Delete both S3 objects
+  // 3. Delete the DynamoDB item
   //
-  await deleteState({ s3, gameId });
-  await deletePrivate({ s3, gameId });
+  await deleteItem({
+    client: dynamo.client,
+    tableName: dynamo.tableName,
+    gameId
+  });
 
   //
   // 4. Return success

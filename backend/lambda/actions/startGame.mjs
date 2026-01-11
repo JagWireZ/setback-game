@@ -2,14 +2,9 @@
 
 import { PHASES } from "../engine/phases.mjs";
 
-import { getState } from "../data/getState.mjs";
-import { putState } from "../data/putState.mjs";
-import { getPrivate } from "../data/getPrivate.mjs";
-import { putPrivate } from "../data/putPrivate.mjs";
+import { getItem } from "../data/getItem.mjs";
+import { putItem } from "../data/putItem.mjs";
 
-//
-// 0. Validation (moved to top, consistent with createGame/joinGame/deleteGame)
-//
 const validate = ({ state, ownerToken, playerToken }) => {
   if (state.phase.name !== PHASES.LOBBY) {
     throw new Error("Game has already started");
@@ -20,57 +15,51 @@ const validate = ({ state, ownerToken, playerToken }) => {
   }
 };
 
-export const apply = async ({ payload, auth, s3 }) => {
+export const apply = async ({ payload, auth, dynamo }) => {
   const { gameId } = payload;
   const { playerToken } = auth;
 
-  //
-  // 1. Load state.json + private.json
-  //
-  let state;
-  let priv;
-
+  let item;
   try {
-    state = await getState({ s3, gameId });
-    priv = await getPrivate({ s3, gameId });
+    item = await getItem({
+      client: dynamo.client,
+      tableName: dynamo.tableName,
+      gameId
+    });
   } catch {
     throw new Error("Game not found");
   }
 
-  //
-  // 2. Validate permissions + phase
-  //
+  const { state, priv } = item;
+
   validate({
     state,
     ownerToken: priv.ownerToken,
     playerToken
   });
 
-  //
-  // 3. Build updated state
-  //
   const newState = {
     ...state,
     phase: {
       ...state.phase,
       name: PHASES.DEALING,
-      roundIndex:
-        typeof state.phase.roundIndex === "number"
-          ? state.phase.roundIndex
-          : 0
+      step: null,
+      roundIndex: state.phase.roundIndex ?? 0
     },
+    started: true,
     version: state.version + 1
   };
 
-  //
-  // 4. Persist updated state + private (unchanged)
-  //
-  await putState({ s3, gameId, state: newState });
-  await putPrivate({ s3, gameId, privateData: priv });
+  await putItem({
+    client: dynamo.client,
+    tableName: dynamo.tableName,
+    item: {
+      gameId,
+      state: newState,
+      priv
+    }
+  });
 
-  //
-  // 5. Return updated state + gameId
-  //
   return {
     gameId,
     state: newState

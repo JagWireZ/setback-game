@@ -7,36 +7,34 @@ terraform {
   }
 }
 
-# Configure the AWS Provider
 provider "aws" {
-  region = "us-east-1"
+  region  = "us-east-1"
   profile = "aws-taylor-app"
 }
 
 #
-# S3 Bucket
+# DynamoDB Table
 #
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
+resource "aws_dynamodb_table" "setback_games" {
+  name         = "setback-games"
+  billing_mode = "PAY_PER_REQUEST"
 
-resource "aws_s3_bucket" "setback_state" {
-  bucket = "setback-game-state-${random_id.bucket_suffix.hex}"
-}
+  hash_key = "gameId"
 
-resource "aws_s3_bucket_lifecycle_configuration" "setback_state_lifecycle" {
-  bucket = aws_s3_bucket.setback_state.id
+  attribute {
+    name = "gameId"
+    type = "S"
+  }
 
-  rule {
-    id     = "expire-old-games"
-    status = "Enabled"
+  ttl {
+    attribute_name = "expiresAt"
+    enabled        = false
+  }
 
-    expiration {
-      days = 30
-    }
+  tags = {
+    App = "Setback"
   }
 }
-
 
 #
 # Zip Lambda code from local folder
@@ -63,10 +61,9 @@ resource "aws_lambda_function" "setback_backend" {
 
   environment {
     variables = {
-      BUCKET_NAME = aws_s3_bucket.setback_state.bucket
+      TABLE_NAME = aws_dynamodb_table.setback_games.name
     }
   }
-
 }
 
 #
@@ -90,8 +87,8 @@ resource "aws_iam_role" "lambda_exec_role" {
 #
 # IAM Policy: Lambda can read/write DynamoDB
 #
-resource "aws_iam_role_policy" "lambda_s3_policy" {
-  name = "lambda-s3-access"
+resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
+  name = "lambda-dynamodb-access"
   role = aws_iam_role.lambda_exec_role.id
 
   policy = jsonencode({
@@ -100,18 +97,14 @@ resource "aws_iam_role_policy" "lambda_s3_policy" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject"
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
         ]
-        Resource = "${aws_s3_bucket.setback_state.arn}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:ListBucket"
-        ]
-        Resource = aws_s3_bucket.setback_state.arn
+        Resource = aws_dynamodb_table.setback_games.arn
       }
     ]
   })

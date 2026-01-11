@@ -1,18 +1,11 @@
-// actions/joinGame.mjs
-
 import { generatePlayer } from "../helpers/generatePlayer.mjs";
 import { cleanState } from "../helpers/cleanState.mjs";
 
-import {
-  generatePresignedUrl,
-  getPrivate,
-  getState,
-  putPrivate,
-  putState
-} from "../data/index.mjs";
+import { getItem } from "../data/getItem.mjs";
+import { putItem } from "../data/putItem.mjs";
 
 //
-// 0. Validation (moved to top, consistent with createGame/deleteGame)
+// 0. Validation (top-level, consistent with createGame/deleteGame)
 //
 const validate = ({ gameState, payload }) => {
   const { gameId, playerName } = payload;
@@ -42,24 +35,27 @@ const validate = ({ gameState, payload }) => {
   }
 };
 
-export const apply = async ({ payload, s3 }) => {
+export const apply = async ({ payload, dynamo }) => {
   const { gameId, playerName } = payload;
 
   //
-  // 1. Load state.json + private.json from S3
+  // 1. Load full DynamoDB item (state + priv)
   //
-  let state;
-  let priv;
-
+  let item;
   try {
-    state = await getState({ s3, gameId });
-    priv = await getPrivate({ s3, gameId });
+    item = await getItem({
+      client: dynamo.client,
+      tableName: dynamo.tableName,
+      gameId
+    });
   } catch {
     throw new Error("Game not found: " + gameId);
   }
 
+  const { state, priv } = item;
+
   //
-  // 2. Validate using fresh S3 state
+  // 2. Validate using fresh DB state
   //
   validate({ gameState: state, payload });
 
@@ -72,7 +68,7 @@ export const apply = async ({ payload, s3 }) => {
   });
 
   //
-  // 4. Update public state.json
+  // 4. Update public state
   //
   const newState = {
     ...state,
@@ -81,7 +77,7 @@ export const apply = async ({ payload, s3 }) => {
   };
 
   //
-  // 5. Update private.json (tokens + authorized player)
+  // 5. Update private section (tokens + authorized player)
   //
   const newPriv = {
     ...priv,
@@ -93,24 +89,25 @@ export const apply = async ({ payload, s3 }) => {
   };
 
   //
-  // 6. Persist both objects to S3
+  // 6. Persist updated item to DynamoDB
   //
-  await putState({ s3, gameId, state: newState });
-  await putPrivate({ s3, gameId, privateData: newPriv });
+  await putItem({
+    client: dynamo.client,
+    tableName: dynamo.tableName,
+    item: {
+      gameId,
+      state: newState,
+      priv: newPriv
+    }
+  });
 
   //
-  // 7. Generate presigned URL for state.json
-  //
-  const url = await generatePresignedUrl({ s3, gameId });
-
-  //
-  // 8. Return cleaned state + tokens + presigned URL + gameId
+  // 7. Return cleaned state + tokens + gameId
   //
   return {
     gameId,
     state: cleanState({ state: newState, playerId: player.playerId }),
     playerId: player.playerId,
-    playerToken,
-    url
+    playerToken
   };
 };

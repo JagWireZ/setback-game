@@ -1,10 +1,7 @@
-// index.mjs
-//
-// Unified Lambda entrypoint for all S3-based game actions.
-
-import { S3Client } from "@aws-sdk/client-s3";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { cleanState } from "./helpers/cleanState.mjs";
-import { getPrivate } from "./data/getPrivate.mjs";
+
+import { getItem } from "./data/getItem.mjs";
 
 // Explicit action imports
 import { apply as createGame } from "./actions/createGame.mjs";
@@ -12,25 +9,17 @@ import { apply as joinGame } from "./actions/joinGame.mjs";
 import { apply as deleteGame } from "./actions/deleteGame.mjs";
 import { apply as startGame } from "./actions/startGame.mjs";
 
-// Add more as you convert them:
-// import { apply as playCard } from "./actions/playCard.mjs";
-// import { apply as submitBid } from "./actions/submitBid.mjs";
-// import { apply as endRound } from "./actions/endRound.mjs";
-
 const ACTIONS = {
   createGame,
   joinGame,
   deleteGame,
   startGame
-  // playCard,
-  // submitBid,
-  // endRound
 };
 
-// Initialize S3 client once
-const s3 = {
-  client: new S3Client({}),
-  bucket: process.env.BUCKET_NAME
+// Initialize DynamoDB client once
+const dynamo = {
+  client: new DynamoDBClient({}),
+  tableName: process.env.TABLE_NAME
 };
 
 // Safe body parsing
@@ -55,7 +44,7 @@ const parseBody = (event) => {
 export const handler = async (event) => {
   try {
     const body = parseBody(event);
-    const { action, payload, auth, gameId } = body;
+    const { action, payload, auth } = body;
 
     const mod = ACTIONS[action];
     if (!mod) {
@@ -69,7 +58,7 @@ export const handler = async (event) => {
     // 1. Actions that do NOT require loading existing state
     //
     if (action === "createGame" || action === "joinGame") {
-      const result = await mod({ payload, auth, s3 });
+      const result = await mod({ payload, auth, dynamo });
 
       return {
         statusCode: 200,
@@ -79,18 +68,33 @@ export const handler = async (event) => {
 
     //
     // 2. All other actions require:
-    //    - loading private.json
+    //    - loading DynamoDB item
     //    - validating token
     //
-    let priv;
+    const gameId = payload?.gameId;
+
+    if (!gameId) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "gameId is required" })
+      };
+    }
+
+    let item;
     try {
-      priv = await getPrivate({ s3, gameId });
+      item = await getItem({
+        client: dynamo.client,
+        tableName: dynamo.tableName,
+        gameId
+      });
     } catch {
       return {
         statusCode: 404,
         body: JSON.stringify({ error: "Game not found" })
       };
     }
+
+    const { priv } = item;
 
     // Token validation
     if (!auth || priv.playerTokens[auth.playerId] !== auth.playerToken) {
@@ -103,7 +107,7 @@ export const handler = async (event) => {
     //
     // 3. Execute action
     //
-    const result = await mod({ payload, auth, s3 });
+    const result = await mod({ payload, auth, dynamo });
 
     //
     // 4. If the action returned a state, clean it
@@ -113,7 +117,10 @@ export const handler = async (event) => {
         statusCode: 200,
         body: JSON.stringify({
           ...result,
-          state: cleanState({ state: result.state, playerId: auth.playerId })
+          state: cleanState({
+            state: result.state,
+            playerId: auth.playerId
+          })
         })
       };
     }
