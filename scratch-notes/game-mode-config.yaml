@@ -1,0 +1,47 @@
+game_modes:
+  default_mode: "menu"
+
+  menu:
+    description: "Player chooses between single-player or multiplayer."
+
+  single_player:
+    enabled: true
+    description: "Player competes against AI opponents using the same multiplayer-ready game engine."
+    ai_opponents:
+      count: 3
+      difficulty_levels:
+        - "easy"
+        - "normal"
+        - "hard"
+    engine: "shared_rules_engine"
+    networking: "none"
+
+  multiplayer:
+    enabled: true
+    description: "Players connect to a server that maintains the authoritative game state."
+    server_requirements:
+      - "WebSocket or Socket.IO real-time communication"
+      - "Server-authoritative game state"
+      - "Turn order enforcement"
+      - "Bid and play validation"
+      - "Scoring and round progression"
+      - "Reconnect and desync handling"
+    features:
+      - "Online matchmaking"
+      - "Private rooms"
+      - "Lobby system"
+      - "Spectator mode (future)"
+    engine: "shared_rules_engine"
+    networking: "websocket"
+
+  shared_rules_engine:
+    description: "Pure deterministic TypeScript functions used by both single-player and multiplayer."
+    responsibilities:
+      - "Deal cards"
+      - "Determine trump"
+      - "Validate plays"
+      - "Enforce follow-suit rules"
+      - "Track books"
+      - "Apply scoring system"
+      - "Handle round progression"
+      - "Handle win conditions"

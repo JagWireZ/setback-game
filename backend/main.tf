@@ -14,29 +14,29 @@ provider "aws" {
 }
 
 #
-# DynamoDB Table
+# S3 Bucket
 #
-resource "aws_dynamodb_table" "game_state" {
-  name         = "setback-gamestate"
-  billing_mode = "PAY_PER_REQUEST"
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
 
-  hash_key = "PK"
-  range_key = "SK"
+resource "aws_s3_bucket" "setback_state" {
+  bucket = "setback-game-state-${random_id.bucket_suffix.hex}"
+}
 
-  attribute {
-    name = "PK"
-    type = "S"
-  }
+resource "aws_s3_bucket_lifecycle_configuration" "setback_state_lifecycle" {
+  bucket = aws_s3_bucket.setback_state.id
 
-  attribute {
-    name = "SK"
-    type = "S"
-  }
+  rule {
+    id     = "expire-old-games"
+    status = "Enabled"
 
-  tags = {
-    App = "Set Back"
+    expiration {
+      days = 30
+    }
   }
 }
+
 
 #
 # Zip Lambda code from local folder
@@ -54,6 +54,7 @@ resource "aws_lambda_function" "setback_backend" {
   function_name = "setback-backend"
   handler       = "index.handler"
   runtime       = "nodejs24.x"
+  timeout       = 15
 
   filename         = data.archive_file.lambda_zip.output_path
   source_code_hash = data.archive_file.lambda_zip.output_base64sha256
@@ -62,9 +63,10 @@ resource "aws_lambda_function" "setback_backend" {
 
   environment {
     variables = {
-      TABLE_NAME = aws_dynamodb_table.game_state.name
+      BUCKET_NAME = aws_s3_bucket.setback_state.bucket
     }
   }
+
 }
 
 #
@@ -88,8 +90,8 @@ resource "aws_iam_role" "lambda_exec_role" {
 #
 # IAM Policy: Lambda can read/write DynamoDB
 #
-resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
-  name = "lambda-dynamodb-access"
+resource "aws_iam_role_policy" "lambda_s3_policy" {
+  name = "lambda-s3-access"
   role = aws_iam_role.lambda_exec_role.id
 
   policy = jsonencode({
@@ -98,14 +100,18 @@ resource "aws_iam_role_policy" "lambda_dynamodb_policy" {
       {
         Effect = "Allow"
         Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Query",
-          "dynamodb:Scan"
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
         ]
-        Resource = aws_dynamodb_table.game_state.arn
+        Resource = "${aws_s3_bucket.setback_state.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket"
+        ]
+        Resource = aws_s3_bucket.setback_state.arn
       }
     ]
   })

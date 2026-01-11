@@ -1,0 +1,167 @@
+---
+set_back_rules:
+  title: "Set Back — Official Game Rules"
+
+  deck:
+    total_cards: 54
+    contents:
+      standard_cards: 52
+      big_joker: 1
+      little_joker: 1
+    notes:
+      - "The Big Joker is the highest card in the game."
+      - "The Little Joker is the second-highest card."
+
+  dealer:
+    first_dealer: "Randomly chosen"
+    rotation: "Left after each round"
+
+  rounds:
+    total_rounds: 19
+    card_distribution:
+      - 10
+      - 9
+      - 8
+      - 7
+      - 6
+      - 5
+      - 4
+      - 3
+      - 2
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+      - 9
+      - 10
+
+  trump:
+    determination:
+      steps:
+        - "After dealing, flip the next card face-up."
+        - "The suit of that card becomes the trump suit."
+      joker_handling:
+        - "If a joker is flipped, show it to all players."
+        - "Place the joker under the deck."
+        - "Flip the next card to determine trump."
+    ranking:
+      trump_order_high_to_low:
+        - "Big Joker"
+        - "Little Joker"
+        - "Ace of trump"
+        - "King"
+        - "Queen"
+        - "Jack"
+        - "10"
+        - "9"
+        - "8"
+        - "7"
+        - "6"
+        - "5"
+        - "4"
+        - "3"
+        - "2"
+      non_trump_order_high_to_low:
+        - "Ace"
+        - "King"
+        - "Queen"
+        - "Jack"
+        - "10"
+        - "9"
+        - "8"
+        - "7"
+        - "6"
+        - "5"
+        - "4"
+        - "3"
+        - "2"
+
+  bidding:
+    description: "Before any cards are played, each player bids how many books they expect to win."
+    notes:
+      - "Your score depends on how accurately you bid."
+      - "Overbidding results in setback penalties."
+
+  gameplay:
+    leading:
+      first_play: "Player to the left of the dealer leads the first card."
+      subsequent_plays: "Winner of the previous play leads next."
+    following_suit:
+      must_follow_if_possible: true
+      if_cannot_follow: "Player may play any card, including trump."
+    winning_play:
+      rules:
+        - "If no trump is played, highest card of the suit led wins."
+        - "If any trump is played, highest trump wins."
+      result: "Winner collects the book and leads the next play."
+
+  breaking_trump:
+    cannot_lead_trump_until_broken: true
+    broken_when:
+      - "A player cannot follow suit and plays a trump card."
+      - "A player has only trump cards remaining."
+    after_broken: "Players may lead with any card, including trump."
+
+  leading_with_trump:
+    rules:
+      - "If a player leads with trump, all players must play trump if they have it."
+      - "If they do not have trump, they may play any card."
+
+  strategy_tip: >
+    If a player believes they cannot win the play, it is often wiser to lay a
+    lower-value card and save their stronger cards for later opportunities.
+
+  scoring:
+    description: "After all cards in a round have been played, each player scores based on their bid and performance."
+    rules:
+      underbid:
+        description: "If a player wins fewer books than they bid."
+        points: "-10 points per number bid"
+        example: "Bid 3, won 2 → -30 points"
+      met_or_exceeded_bid:
+        description: "If a player wins at least as many books as they bid."
+        points: "10 points per book bid"
+        example: "Bid 3, won 3 → 30 points"
+      overtricks:
+        description: "Books won beyond the bid are worth 1 point each."
+        examples:
+          - "Bid 0, won 2 → 2 points"
+          - "Bid 2, won 3 → 21 points (20 for bid + 1 extra)"
+      rainbow_bonus:
+        description: >
+          In the two rounds where 4 cards are dealt, if a player is dealt one
+          card of each suit, they may declare 'rainbow' and earn a 25-point bonus.
+        notes:
+          - "Jokers count as the trump suit for rainbow determination."
+      trip_rounds:
+        description: >
+          In rounds with 3, 2, or 1 card, a player may call 'trip' during their
+          bid, meaning they intend to win all books in that round.
+        success:
+          points: "3x the normal amount"
+          example: "Trip on 3-card round and win all 3 → 90 points"
+        failure:
+          points: "-3x the amount"
+          example: "Trip on 3-card round but fail → -90 points"
+        notes:
+          - "A player may still bid the maximum (e.g., 3 on a 3-card round) without calling trip."
+          - "If they do so and win all books, they score normally (10 points per book)."
+
+  end_of_round:
+    steps:
+      - "Count how many books each player won."
+      - "Compare books won to each player's bid."
+      - "Apply scoring rules."
+      - "Apply setback penalties for overbidding."
+      - "Rotate the dealer."
+      - "Begin the next round."
+
+  winning_the_game:
+    steps:
+      - "After all 19 rounds, total all scores."
+      - "The player with the highest score wins."
+      - "Setback penalties often determine the final outcome."

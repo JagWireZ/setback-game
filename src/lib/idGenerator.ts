@@ -42,6 +42,6 @@ export const createGameId = (random = Math.random) => {
 }
 
 export const createPlayerId = () => {
-  const id = crypto.randomUUID();
+  const id: string = crypto.randomUUID();
   return id.slice(0,7);
 }

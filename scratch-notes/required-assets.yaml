@@ -1,0 +1,71 @@
+---
+required_assets:
+  cards:
+    standard_cards:
+      suits: ["spades", "hearts", "diamonds", "clubs"]
+      ranks: ["2","3","4","5","6","7","8","9","10","J","Q","K","A"]
+    jokers:
+      - "big_joker"
+      - "little_joker"
+    card_back: "default_card_back"
+    optional:
+      highlight_states:
+        - "selected"
+        - "playable"
+        - "invalid"
+      overlays:
+        - "trump_indicator"
+      suit_icons: "svg_suit_set"
+
+  ui_elements:
+    core_ui:
+      - "scoreboard_panel"
+      - "bidding_interface"
+      - "trump_display"
+      - "round_indicator"
+      - "player_hand_area"
+      - "opponent_hand_area"
+      - "book_counter"
+      - "play_area"
+    buttons:
+      - "deal_button"
+      - "confirm_bid_button"
+      - "play_card_button"
+      - "restart_button"
+      - "settings_button"
+    feedback:
+      - "toast_notifications"
+      - "error_messages"
+      - "turn_indicator"
+
+  animations:
+    optional:
+      - "card_deal_animation"
+      - "card_slide_animation"
+      - "card_flip_animation"
+      - "book_collect_animation"
+      - "score_popup_animation"
+
+  audio:
+    optional:
+      - "card_slide_sound"
+      - "card_flip_sound"
+      - "book_win_sound"
+      - "round_start_sound"
+      - "button_click_sound"
+
+  game_data:
+    - "round_structure"
+    - "card_rankings"
+    - "trump_hierarchy"
+    - "scoring_rules"
+    - "ai_difficulty_presets"
+    - "player_profile_data"
+
+  multiplayer_future:
+    enabled: false
+    planned_assets:
+      - "player_avatars"
+      - "chat_icons"
+      - "connection_status_indicators"
+      - "lobby_ui_elements"

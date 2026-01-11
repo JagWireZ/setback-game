@@ -1,0 +1,23 @@
+---
+core_gameplay_loop:
+  start_of_round:
+    - "Dealer deals the required number of cards for the round."
+    - "Flip next card to reveal trump (handle jokers accordingly)."
+    - "Players place their bids for the round."
+
+  trick_sequence:
+    - "Player to the left of the dealer leads the first play."
+    - "Players must follow suit if possible; otherwise may play any card."
+    - "Determine winner of the play based on suit and trump rules."
+    - "Winner collects the book and leads the next play."
+    - "Repeat until all cards in hand have been played."
+
+  end_of_round:
+    - "Count books won by each player."
+    - "Apply scoring rules based on bids and results."
+    - "Apply bonuses or penalties (rainbow, trip, setbacks)."
+    - "Rotate dealer and prepare next round."
+
+  end_of_game:
+    - "After all 19 rounds, total all scores."
+    - "Highest score wins."
