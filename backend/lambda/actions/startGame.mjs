@@ -22,14 +22,14 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("Game not found");
   }
 
-  let { state, priv, version } = item;
+  let { state, priv } = item;
 
   const playerId = validateIdentity({ auth, priv });
 
   //
-  // 1. Only owner can start
+  // 1. Only owner can start (must match ownerId + ownerToken)
   //
-  if (state.ownerId !== playerId) {
+  if (state.ownerId !== playerId || auth.playerToken !== priv.ownerToken) {
     throw new Error("Only the game creator can start the game");
   }
 
@@ -48,18 +48,20 @@ export const apply = async ({ payload, auth, dynamo }) => {
   //
   // 4. Assign first dealer (seat 0)
   //
-  state = {
-    ...state,
-    dealerId: state.players[0].playerId
-  };
+  state.dealerId = state.players[0].playerId;
 
   //
   // 5. Move from LOBBY → PRE_ROUND
   //
-  state = advance(state); // sets phase.name = PRE_ROUND, step = first PRE_ROUND step
+  state = advance(state);
 
   //
-  // 6. Persist
+  // 6. Increment version
+  //
+  state.version += 1;
+
+  //
+  // 7. Persist
   //
   await putItem({
     client: dynamo.client,
@@ -67,13 +69,12 @@ export const apply = async ({ payload, auth, dynamo }) => {
     item: {
       gameId,
       state,
-      priv,
-      version: version + 1
+      priv
     }
   });
 
   //
-  // 7. Return clean state
+  // 8. Return clean state
   //
   return {
     gameId,

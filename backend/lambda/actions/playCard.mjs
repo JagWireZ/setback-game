@@ -28,7 +28,7 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("Game not found");
   }
 
-  let { state, priv, version } = item;
+  let { state, priv } = item;
 
   const playerId = validateIdentity({ auth, priv });
 
@@ -40,7 +40,7 @@ export const apply = async ({ payload, auth, dynamo }) => {
   //
   // 2. Must be at WAITING_FOR_CARD step
   //
-  assertStep(state, STEPS[PHASES.PLAYING].WAITING_FOR_CARD);
+  assertStep(state, STEPS.PLAYING.WAITING_FOR_CARD);
 
   //
   // 3. Must be this player's turn
@@ -48,37 +48,50 @@ export const apply = async ({ payload, auth, dynamo }) => {
   assertTurn(state, playerId);
 
   //
-  // 4. Apply card play
+  // 4. Card must be in player's hand
+  //
+  const hand = state.cards.hands[playerId] || [];
+  if (!hand.some(c => c.suit === card.suit && c.rank === card.rank)) {
+    throw new Error("Card not in hand");
+  }
+
+  //
+  // 5. Apply card play
   //
   state = enginePlayCard(state, { playerId, card });
 
   //
-  // 5. Advance → CARD_PLAYED
+  // 6. Advance → CARD_PLAYED
   //
   state = advance(state);
 
   //
-  // 6. Resolve trick if 5 cards played
+  // 7. Resolve trick if 5 cards played
   //
   state = resolveTrick(state);
 
   //
-  // 7. Advance → RESOLVING_TRICK
+  // 8. Advance → RESOLVING_TRICK
   //
   state = advance(state);
 
   //
-  // 8. Check if hands are empty (round over)
+  // 9. Check if hands are empty (round over)
   //
   state = checkHandEmpty(state);
 
   //
-  // 9. Advance → NEXT_TRICK or POST_ROUND
+  // 10. Advance → NEXT_TRICK or POST_ROUND
   //
   state = advance(state);
 
   //
-  // 10. Persist
+  // 11. Increment version
+  //
+  state.version += 1;
+
+  //
+  // 12. Persist
   //
   await putItem({
     client: dynamo.client,
@@ -86,13 +99,12 @@ export const apply = async ({ payload, auth, dynamo }) => {
     item: {
       gameId,
       state,
-      priv,
-      version: version + 1
+      priv
     }
   });
 
   //
-  // 11. Return clean state
+  // 13. Return clean state
   //
   return {
     gameId,

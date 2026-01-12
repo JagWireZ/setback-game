@@ -29,14 +29,14 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("Game not found");
   }
 
-  let { state, priv, version } = item;
+  let { state, priv } = item;
 
   const playerId = validateIdentity({ auth, priv });
 
   //
   // 1. Only owner can advance the round
   //
-  if (state.ownerId !== playerId) {
+  if (state.ownerId !== playerId || auth.playerToken !== priv.ownerToken) {
     throw new Error("Only the game creator can advance after a round");
   }
 
@@ -48,62 +48,74 @@ export const apply = async ({ payload, auth, dynamo }) => {
   //
   // 3. Must be at CALCULATING_SCORES step
   //
-  assertStep(state, STEPS[PHASES.POST_ROUND].CALCULATING_SCORES);
+  assertStep(state, STEPS.POST_ROUND.CALCULATING_SCORES);
 
   //
-  // 4. Score the round
+  // 4. Round must be complete
+  //
+  if (!state.roundComplete) {
+    throw new Error("Round not complete");
+  }
+
+  //
+  // 5. Score the round
   //
   state = scoreRound(state);
 
   //
-  // 5. Advance → CLEAR_BOOKS
+  // 6. Advance → CLEAR_BOOKS
   //
   state = advance(state);
 
   //
-  // 6. Clear books + trick
+  // 7. Clear books + trick
   //
   state = clearBooksAndTricks(state);
 
   //
-  // 7. Advance → CLEAR_DECK
+  // 8. Advance → CLEAR_DECK
   //
   state = advance(state);
 
   //
-  // 8. Clear deck + trump
+  // 9. Clear deck + trump
   //
   state = clearDeck(state);
 
   //
-  // 9. Advance → SET_NEXT_DEALER
+  // 10. Advance → SET_NEXT_DEALER
   //
   state = advance(state);
 
   //
-  // 10. Rotate dealer
+  // 11. Rotate dealer
   //
   state = setNextDealer(state);
 
   //
-  // 11. Advance → CHECK_GAME_END
+  // 12. Advance → CHECK_GAME_END
   //
   state = advance(state);
 
   //
-  // 12. Prepare next round (or leave state as-is if game over)
+  // 13. Prepare next round (if not game over)
   //
   if (!state.gameOver) {
     state = prepareNextRound(state);
   }
 
   //
-  // 13. Advance → PRE_ROUND or GAME_OVER
+  // 14. Advance → PRE_ROUND or GAME_OVER
   //
   state = advance(state);
 
   //
-  // 14. Persist
+  // 15. Increment version
+  //
+  state.version += 1;
+
+  //
+  // 16. Persist
   //
   await putItem({
     client: dynamo.client,
@@ -111,13 +123,12 @@ export const apply = async ({ payload, auth, dynamo }) => {
     item: {
       gameId,
       state,
-      priv,
-      version: version + 1
+      priv
     }
   });
 
   //
-  // 15. Return clean state
+  // 17. Return clean state
   //
   return {
     gameId,

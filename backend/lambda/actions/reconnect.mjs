@@ -25,7 +25,7 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("Game not found");
   }
 
-  let { state, priv, version } = item;
+  let { state, priv } = item;
 
   //
   // 2. Validate identity
@@ -33,21 +33,28 @@ export const apply = async ({ payload, auth, dynamo }) => {
   const playerId = validateIdentity({ auth, priv });
 
   //
-  // 3. Mark player as connected
+  // 3. Ensure player is actually in the game
   //
-  const players = state.players.map((p) =>
+  if (!state.players.some(p => p.playerId === playerId)) {
+    throw new Error("Player not in this game");
+  }
+
+  //
+  // 4. Mark player as connected
+  //
+  state.players = state.players.map(p =>
     p.playerId === playerId
       ? { ...p, connected: true }
       : p
   );
 
-  state = {
-    ...state,
-    players
-  };
+  //
+  // 5. Increment version
+  //
+  state.version += 1;
 
   //
-  // 4. Persist updated connection status
+  // 6. Persist updated connection status
   //
   await putItem({
     client: dynamo.client,
@@ -55,13 +62,12 @@ export const apply = async ({ payload, auth, dynamo }) => {
     item: {
       gameId,
       state,
-      priv,
-      version: version + 1
+      priv
     }
   });
 
   //
-  // 5. Return clean state
+  // 7. Return clean state
   //
   return {
     gameId,

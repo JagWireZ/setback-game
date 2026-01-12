@@ -23,7 +23,7 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("Game not found");
   }
 
-  let { state, priv, version } = item;
+  let { state, priv } = item;
 
   const playerId = validateIdentity({ auth, priv });
 
@@ -42,35 +42,47 @@ export const apply = async ({ payload, auth, dynamo }) => {
   //
   // 3. Must be at SHUFFLING step
   //
-  assertStep(state, STEPS[PHASES.DEALING].SHUFFLING);
+  assertStep(state, STEPS.DEALING.SHUFFLING);
 
   //
-  // 4. Shuffle + deal
+  // 4. Prevent double-deal
+  //
+  if (state.cards.hands && Object.values(state.cards.hands).some(h => h.length > 0)) {
+    throw new Error("Cards already dealt");
+  }
+
+  //
+  // 5. Shuffle + deal
   //
   state = dealCards(state);
 
   //
-  // 5. Advance → DEALING_CARDS
+  // 6. Advance → DEALING_CARDS
   //
   state = advance(state);
 
   //
-  // 6. Advance → REVEALING_TRUMP
+  // 7. Advance → REVEALING_TRUMP
   //
   state = advance(state);
 
   //
-  // 7. Reveal trump
+  // 8. Reveal trump
   //
   state = revealTrump(state);
 
   //
-  // 8. Advance → BIDDING.WAITING_FOR_PLAYER
+  // 9. Advance → BIDDING.WAITING_FOR_PLAYER
   //
   state = advance(state);
 
   //
-  // 9. Persist
+  // 10. Increment version
+  //
+  state.version += 1;
+
+  //
+  // 11. Persist
   //
   await putItem({
     client: dynamo.client,
@@ -78,13 +90,12 @@ export const apply = async ({ payload, auth, dynamo }) => {
     item: {
       gameId,
       state,
-      priv,
-      version: version + 1
+      priv
     }
   });
 
   //
-  // 10. Return clean state
+  // 12. Return clean state
   //
   return {
     gameId,

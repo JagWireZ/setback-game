@@ -22,14 +22,14 @@ export const apply = async ({ payload, auth, dynamo }) => {
   const { state, priv } = item;
 
   //
-  // 1. Validate identity
+  // 1. Validate identity (playerId + token match)
   //
   const playerId = validateIdentity({ auth, priv });
 
   //
   // 2. Only the game creator can delete the game
   //
-  if (state.ownerId !== playerId) {
+  if (state.ownerId !== playerId || auth.playerToken !== priv.ownerToken) {
     throw new Error("Only the game creator can delete this game");
   }
 

@@ -1,5 +1,6 @@
 // actions/createGame.mjs
 
+import crypto from "node:crypto";
 import { putItem } from "../data/putItem.mjs";
 import { generatePlayer } from "../helpers/generatePlayer.mjs";
 import { generateState } from "../helpers/generateState.mjs";
@@ -17,8 +18,13 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("playerName is required");
   }
 
-  if (typeof maxCards !== "number" || !Number.isInteger(maxCards) || maxCards < 1) {
-    throw new Error("maxCards must be a positive integer");
+  if (
+    typeof maxCards !== "number" ||
+    !Number.isInteger(maxCards) ||
+    maxCards < 1 ||
+    maxCards > 10
+  ) {
+    throw new Error("maxCards must be between 1 and 10");
   }
 
   //
@@ -49,16 +55,23 @@ export const apply = async ({ payload, auth, dynamo }) => {
   });
 
   //
-  // 6. Private token map
+  // 6. Add version to state
+  //
+  state.version = 1;
+
+  //
+  // 7. Private token map
   //
   const priv = {
+    ownerToken: playerToken,
+    authorizedToken: playerToken,
     playerTokens: {
       [playerId]: playerToken
     }
   };
 
   //
-  // 7. Persist
+  // 8. Persist
   //
   const gameId = crypto.randomUUID();
 
@@ -68,13 +81,12 @@ export const apply = async ({ payload, auth, dynamo }) => {
     item: {
       gameId,
       state,
-      priv,
-      version: 1
+      priv
     }
   });
 
   //
-  // 8. Return clean state
+  // 9. Return clean state
   //
   return {
     gameId,

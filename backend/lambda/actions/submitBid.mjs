@@ -17,6 +17,10 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("Invalid bid");
   }
 
+  if (typeof trip !== "boolean") {
+    throw new Error("trip must be a boolean");
+  }
+
   const item = await getItem({
     client: dynamo.client,
     tableName: dynamo.tableName,
@@ -27,9 +31,16 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("Game not found");
   }
 
-  let { state, priv, version } = item;
+  let { state, priv } = item;
 
   const playerId = validateIdentity({ auth, priv });
+
+  //
+  // Ensure player is actually in the game
+  //
+  if (!state.players.some(p => p.playerId === playerId)) {
+    throw new Error("Player not in this game");
+  }
 
   //
   // 1. Must be in BIDDING phase
@@ -39,7 +50,7 @@ export const apply = async ({ payload, auth, dynamo }) => {
   //
   // 2. Must be at WAITING_FOR_PLAYER step
   //
-  assertStep(state, STEPS[PHASES.BIDDING].WAITING_FOR_PLAYER);
+  assertStep(state, STEPS.BIDDING.WAITING_FOR_PLAYER);
 
   //
   // 3. Must be this player's turn
@@ -47,17 +58,30 @@ export const apply = async ({ payload, auth, dynamo }) => {
   assertTurn(state, playerId);
 
   //
-  // 4. Apply bid (with optional trip)
+  // 4. Bid must not exceed hand size
+  //
+  const round = state.options.rounds[state.phase.roundIndex];
+  if (bid > round.cards) {
+    throw new Error("Bid exceeds hand size");
+  }
+
+  //
+  // 5. Apply bid (with optional trip)
   //
   state = submitBid(state, { playerId, bid, trip });
 
   //
-  // 5. Advance to next bidding step
+  // 6. Advance to next bidding step
   //
   state = advance(state);
 
   //
-  // 6. Persist
+  // 7. Increment version
+  //
+  state.version += 1;
+
+  //
+  // 8. Persist
   //
   await putItem({
     client: dynamo.client,
@@ -65,13 +89,12 @@ export const apply = async ({ payload, auth, dynamo }) => {
     item: {
       gameId,
       state,
-      priv,
-      version: version + 1
+      priv
     }
   });
 
   //
-  // 7. Return clean state
+  // 9. Return clean state
   //
   return {
     gameId,
