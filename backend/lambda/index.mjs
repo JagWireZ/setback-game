@@ -14,12 +14,7 @@ import * as reconnect from "./actions/reconnect.mjs";
 import * as getGame from "./actions/getGame.mjs";
 
 const raw = new DynamoDBClient({ region: process.env.AWS_REGION });
-
-globalThis.dynamoClient = DynamoDBDocumentClient.from(raw, {
-  marshallOptions: {
-    removeUndefinedValues: true
-  }
-});
+globalThis.dynamoClient = DynamoDBDocumentClient.from(raw);
 
 // Registry
 const ACTIONS = {
