@@ -1,9 +1,9 @@
+// actions/reconnect.mjs
+
 import { getItem } from "../data/getItem.mjs";
 import { putItem } from "../data/putItem.mjs";
 import { validateIdentity } from "../helpers/validateIdentity.mjs";
 import { cleanState } from "../helpers/cleanState.mjs";
-import { assertPhase } from "../engine/validate.mjs";
-import { PHASES, advance } from "../engine/stateMachine.mjs";
 
 export const apply = async ({ payload, auth, dynamo }) => {
   const { gameId } = payload;
@@ -12,6 +12,9 @@ export const apply = async ({ payload, auth, dynamo }) => {
     throw new Error("gameId is required");
   }
 
+  //
+  // 1. Load game
+  //
   const item = await getItem({
     client: dynamo.client,
     tableName: dynamo.tableName,
@@ -24,42 +27,27 @@ export const apply = async ({ payload, auth, dynamo }) => {
 
   let { state, priv, version } = item;
 
+  //
+  // 2. Validate identity
+  //
   const playerId = validateIdentity({ auth, priv });
 
   //
-  // 1. Only owner can start
+  // 3. Mark player as connected
   //
-  if (state.ownerId !== playerId) {
-    throw new Error("Only the game creator can start the game");
-  }
+  const players = state.players.map((p) =>
+    p.playerId === playerId
+      ? { ...p, connected: true }
+      : p
+  );
 
-  //
-  // 2. Must be in LOBBY
-  //
-  assertPhase(state, PHASES.LOBBY);
-
-  //
-  // 3. Must have exactly 5 players
-  //
-  if (state.players.length !== 5) {
-    throw new Error("Game requires exactly 5 players to start");
-  }
-
-  //
-  // 4. Assign first dealer (seat 0)
-  //
   state = {
     ...state,
-    dealerId: state.players[0].playerId
+    players
   };
 
   //
-  // 5. Move from LOBBY → PRE_ROUND
-  //
-  state = advance(state); // sets phase.name = PRE_ROUND, step = first PRE_ROUND step
-
-  //
-  // 6. Persist
+  // 4. Persist updated connection status
   //
   await putItem({
     client: dynamo.client,
@@ -73,7 +61,7 @@ export const apply = async ({ payload, auth, dynamo }) => {
   });
 
   //
-  // 7. Return clean state
+  // 5. Return clean state
   //
   return {
     gameId,

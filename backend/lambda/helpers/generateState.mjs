@@ -1,38 +1,53 @@
-import { PHASES } from "../engine/phases.mjs";
+// helpers/generateState.mjs
 
-export const generateState = () => ({
+import { PHASES } from "../engine/stateMachine.mjs";
+
+export const generateState = ({ ownerId, options, players = [] }) => ({
+  //
+  // 1. Metadata
+  //
   gameId: null,
   version: 1,
+  ownerId,
 
-  started: false,
-
+  //
+  // 2. Game options
+  //
   options: {
-    gameRounds: []
+    gameRounds: options.gameRounds || [],   // e.g. ["10d","9d",...,"4d","3d",...]
   },
 
-  players: [],
+  //
+  // 3. Players
+  //
+  players,                                   // array of { playerId, name, ... }
 
+  //
+  // 4. Phase machine
+  //
   phase: {
-    name: PHASES.LOBBY,   // canonical top-level phase
-    step: null,           // optional sub-step inside a phase
-    roundIndex: 0,
-    dealerId: null,
-    turnPlayerId: null,
-    bids: {}
+    name: PHASES.LOBBY,
+    step: null,
+    roundIndex: 0
   },
 
-  cards: {
-    deck: [],
-    trumpCard: null,
-    hands: {},
-    onTable: [],
-    books: []
-  },
+  dealerId: null,
+  currentPlayerId: null,
 
-  scoring: {
-    totals: {},
-    potentialTotals: {}
-  },
+  bids: {},                                   // playerId → { bid, trip }
+
+  deck: [],                                   // shuffled deck
+  hands: {},                                  // playerId → array of cards
+  initialHands: {},                           // for rainbow detection
+  trick: [],                                   // [{ playerId, card }]
+  books: {},                                   // playerId → number of books
+  trump: null,                                 // revealed trump card
+  trumpBroken: false,
+
+  roundOver: false,
+  gameOver: false,
+
+  scores: {},                                  // playerId → cumulative score
 
   history: []
 });

@@ -1,113 +1,69 @@
-import { generatePlayer } from "../helpers/generatePlayer.mjs";
-import { cleanState } from "../helpers/cleanState.mjs";
+// actions/joinGame.mjs
 
 import { getItem } from "../data/getItem.mjs";
 import { putItem } from "../data/putItem.mjs";
+import { validateIdentity } from "../helpers/validateIdentity.mjs";
+import { addPlayerToState } from "../helpers/addPlayerToState.mjs";
+import { cleanState } from "../helpers/cleanState.mjs";
+import { PHASES } from "../engine/stateMachine.mjs";
 
-//
-// 0. Validation (top-level, consistent with createGame/deleteGame)
-//
-const validate = ({ gameState, payload }) => {
-  const { gameId, playerName } = payload;
+export const apply = async ({ payload, auth, dynamo }) => {
+  const { gameId, name } = payload;
 
-  if (gameId == null) {
+  if (!gameId) {
     throw new Error("gameId is required");
   }
 
-  if (playerName == null) {
-    throw new Error("playerName is required");
+  if (!name || typeof name !== "string") {
+    throw new Error("Player name is required");
   }
 
-  if (gameState.started) {
-    throw new Error("Game already started");
-  }
-
-  if (gameState.players.length >= 5) {
-    throw new Error("Game already has the maximum number of players");
-  }
-
-  const nameExists = gameState.players.some(
-    (p) => p.name.toLowerCase() === playerName.toLowerCase()
-  );
-
-  if (nameExists) {
-    throw new Error("A player with that name already exists");
-  }
-};
-
-export const apply = async ({ payload, dynamo }) => {
-  const { gameId, playerName } = payload;
-
-  //
-  // 1. Load full DynamoDB item (state + priv)
-  //
-  let item;
-  try {
-    item = await getItem({
-      client: dynamo.client,
-      tableName: dynamo.tableName,
-      gameId
-    });
-  } catch {
-    throw new Error("Game not found: " + gameId);
-  }
-
-  const { state, priv } = item;
-
-  //
-  // 2. Validate using fresh DB state
-  //
-  validate({ gameState: state, payload });
-
-  //
-  // 3. Create new player
-  //
-  const { player, playerToken } = generatePlayer({
-    playerName,
-    seat: state.players.length
+  const item = await getItem({
+    client: dynamo.client,
+    tableName: dynamo.tableName,
+    gameId
   });
 
-  //
-  // 4. Update public state
-  //
-  const newState = {
-    ...state,
-    players: [...state.players, player],
-    version: state.version + 1
+  if (!item) {
+    throw new Error("Game not found");
+  }
+
+  let { state, priv, version } = item;
+
+  const playerId = validateIdentity({ auth, priv });
+
+  if (state.phase.name !== PHASES.LOBBY) {
+    throw new Error("Cannot join a game that has already started");
+  }
+
+  if (state.players.some(p => p.playerId === playerId)) {
+    throw new Error("Player already joined");
+  }
+
+  if (state.players.length >= 5) {
+    throw new Error("Game is full");
+  }
+
+  const player = {
+    playerId,
+    name
   };
 
-  //
-  // 5. Update private section (tokens + authorized player)
-  //
-  const newPriv = {
-    ...priv,
-    playerTokens: {
-      ...priv.playerTokens,
-      [player.playerId]: playerToken
-    },
-    authorizedToken: playerToken
-  };
+  state = addPlayerToState(state, player);
 
-  //
-  // 6. Persist updated item to DynamoDB
-  //
   await putItem({
     client: dynamo.client,
     tableName: dynamo.tableName,
     item: {
       gameId,
-      state: newState,
-      priv: newPriv
+      state,
+      priv,
+      version: version + 1
     }
   });
 
-  //
-  // 7. Return cleaned state + tokens + gameId
-  //
   return {
     gameId,
-    state: cleanState({ state: newState, playerId: player.playerId }),
-    playerId: player.playerId,
-    playerToken
+    state: cleanState(state, playerId)
   };
 };

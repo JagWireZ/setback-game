@@ -1,0 +1,148 @@
+[x] 1. Finalize PHASES and STEPS definitions
+[x] 2. Update stateMachine.mjs with new steps and transitions
+[x] 3. Update generateState.mjs to match new structure
+[x] 4. Update startGame to use new PRE_ROUND phase
+[x] 5. Update dealing logic (SHUFFLING, DEALING_CARDS, REVEALING_TRUMP)
+[x] 6. Update bidding logic (WAITING_FOR_PLAYER, BID_SUBMITTED, ALL_BIDS_IN)
+[x] 7. Update playCard logic (WAITING_FOR_CARD → RESOLVING_TRICK)
+[x] 8. Implement RESOLVING_TRICK (clear table, assign book)
+[x] 9. Implement CHECK_HAND_EMPTY (detect end of round)
+[x] 10. Implement POST_ROUND steps (CALCULATING_SCORES, CLEAR_BOOKS, CLEAR_DECK)
+[x] 11. Implement SET_NEXT_DEALER
+[x] 12. Implement CHECK_GAME_END
+[x] 13. Update cleanState to hide private data
+[ ] 14. Update UI (optional)
+[x] 15. Add validation helpers (optional)
+[ ] 16. Add logging/history (optional)
+[ ] 17. Add tests (optional)
+
+
+1 Finish index.mjs
+2 Finish createGame / joinGame / generateGameId / generatePlayer
+3 Finish getItem / putItem
+4 Wire all actions into index
+5 Run a full round manually
+6 Fix anything that breaks
+
+backend:
+
+1. Core Lambda Structure
+
+[ ] index.mjs — unified Lambda entrypoint
+[ ] Parse request
+[ ] Validate action name
+[ ] Dispatch to action module
+[ ] Load state via getItem
+[ ] Save state via putItem
+[ ] Return cleanState
+[ ] Standardized error handling
+[ ] Version increments consistent
+
+2. Game Actions (backend/lambda/actions)
+Lobby Actions
+
+[ ] createGame.mjs
+[ ] joinGame.mjs
+[ ] startGame.mjs
+[ ] deleteGame.mjs (optional)
+[ ] getGame.mjs (optional)
+[ ] reconnect.mjs (optional)
+
+Round Flow Actions
+
+[ ] deal.mjs
+[ ] SHUFFLING
+[ ] DEALING_CARDS
+[ ] REVEALING_TRUMP
+[ ] submitBid.mjs
+[ ] WAITING_FOR_PLAYER
+[ ] BID_SUBMITTED
+[ ] ALL_BIDS_IN
+[ ] playCard.mjs
+[ ] WAITING_FOR_CARD
+[ ] CARD_PLAYED
+[ ] RESOLVING_TRICK
+[ ] CHECK_HAND_EMPTY
+[ ] postRound.mjs
+[ ] CALCULATING_SCORES
+[ ] CLEAR_BOOKS
+[ ] CLEAR_DECK
+[ ] SET_NEXT_DEALER
+[ ] CHECK_GAME_END
+
+Utility Actions
+
+[ ] ping.mjs (optional)
+[ ] debug.mjs (optional)
+
+3. Engine (backend/lambda/engine)
+
+[x] stateMachine.mjs
+[x] validate.mjs
+[x] cards.mjs
+[x] rules.mjs
+[x] scoring.mjs
+[x] round.mjs
+[x] turnOrder.mjs
+[x] history.mjs (optional)
+
+4. Helpers (backend/lambda/helpers)
+
+[x] generateState.mjs
+[x] cleanState.mjs
+[x] addPlayerToState.mjs
+[x] removePlayerFromState.mjs (optional)
+[x] serializeCard.mjs (optional)
+[x] sortHand.mjs (optional)
+[ ] requireParams.mjs
+[ ] generateGameId.mjs
+[ ] generatePlayer.mjs
+
+5. Data Layer (backend/lambda/data)
+
+[ ] getItem.mjs
+[ ] putItem.mjs
+[ ] updateItem.mjs (optional)
+[ ] scanGames.mjs (optional)
+[ ] deleteItem.mjs (optional)
+
+6. Quality & Testing
+
+Unit Tests
+
+[ ] State machine transitions
+[ ] Scoring logic
+[ ] Trick resolution
+[ ] Bidding logic
+[ ] cleanState output
+[ ] add/remove player helpers
+
+Integration Tests
+
+[ ] Full round simulation
+[ ] Multi‑round game simulation
+[ ] Game‑over flow
+[ ] Reconnect flow
+
+Validation
+
+[ ] All actions use assertPhase, assertStep, assertTurn, etc.
+[ ] No action mutates state directly
+[ ] All transitions go through advance()
+
+7. Security & Consistency
+
+[ ] Only owner can start/delete game
+[ ] Only correct player can bid/play
+[ ] No player sees other hands
+[ ] No stale writes (version increments)
+[ ] No missing fields in DynamoDB items
+[ ] All errors return safe messages
+
+8. Optional Enhancements
+
+[ ] Action replay / deterministic logs
+[ ] Spectator mode
+[ ] Admin/debug actions
+[ ] Rate limiting
+[ ] Game expiration / cleanup

@@ -1,6 +1,8 @@
+// actions/getGame.mjs
+
 import { getItem } from "../data/getItem.mjs";
-import { deleteItem } from "../data/deleteItem.mjs";
 import { validateIdentity } from "../helpers/validateIdentity.mjs";
+import { cleanState } from "../helpers/cleanState.mjs";
 
 export const apply = async ({ payload, auth, dynamo }) => {
   const { gameId } = payload;
@@ -21,32 +23,10 @@ export const apply = async ({ payload, auth, dynamo }) => {
 
   const { state, priv } = item;
 
-  //
-  // 1. Validate identity
-  //
   const playerId = validateIdentity({ auth, priv });
 
-  //
-  // 2. Only the game creator can delete the game
-  //
-  if (state.ownerId !== playerId) {
-    throw new Error("Only the game creator can delete this game");
-  }
-
-  //
-  // 3. Delete the game record
-  //
-  await deleteItem({
-    client: dynamo.client,
-    tableName: dynamo.tableName,
-    gameId
-  });
-
-  //
-  // 4. Return confirmation
-  //
   return {
     gameId,
-    deleted: true
+    state: cleanState(state, playerId)
   };
 };

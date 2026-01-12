@@ -2,14 +2,19 @@ import { getItem } from "../data/getItem.mjs";
 import { putItem } from "../data/putItem.mjs";
 import { validateIdentity } from "../helpers/validateIdentity.mjs";
 import { cleanState } from "../helpers/cleanState.mjs";
-import { assertPhase } from "../engine/validate.mjs";
-import { PHASES, advance } from "../engine/stateMachine.mjs";
+import { assertPhase, assertStep, assertTurn } from "../engine/validate.mjs";
+import { PHASES, STEPS, advance } from "../engine/stateMachine.mjs";
+import { submitBid } from "../engine/rules.mjs";
 
 export const apply = async ({ payload, auth, dynamo }) => {
-  const { gameId } = payload;
+  const { gameId, bid, trip = false } = payload;
 
   if (!gameId) {
     throw new Error("gameId is required");
+  }
+
+  if (typeof bid !== "number" || !Number.isInteger(bid) || bid < 0) {
+    throw new Error("Invalid bid");
   }
 
   const item = await getItem({
@@ -27,36 +32,29 @@ export const apply = async ({ payload, auth, dynamo }) => {
   const playerId = validateIdentity({ auth, priv });
 
   //
-  // 1. Only owner can start
+  // 1. Must be in BIDDING phase
   //
-  if (state.ownerId !== playerId) {
-    throw new Error("Only the game creator can start the game");
-  }
+  assertPhase(state, PHASES.BIDDING);
 
   //
-  // 2. Must be in LOBBY
+  // 2. Must be at WAITING_FOR_PLAYER step
   //
-  assertPhase(state, PHASES.LOBBY);
+  assertStep(state, STEPS[PHASES.BIDDING].WAITING_FOR_PLAYER);
 
   //
-  // 3. Must have exactly 5 players
+  // 3. Must be this player's turn
   //
-  if (state.players.length !== 5) {
-    throw new Error("Game requires exactly 5 players to start");
-  }
+  assertTurn(state, playerId);
 
   //
-  // 4. Assign first dealer (seat 0)
+  // 4. Apply bid (with optional trip)
   //
-  state = {
-    ...state,
-    dealerId: state.players[0].playerId
-  };
+  state = submitBid(state, { playerId, bid, trip });
 
   //
-  // 5. Move from LOBBY → PRE_ROUND
+  // 5. Advance to next bidding step
   //
-  state = advance(state); // sets phase.name = PRE_ROUND, step = first PRE_ROUND step
+  state = advance(state);
 
   //
   // 6. Persist

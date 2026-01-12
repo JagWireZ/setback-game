@@ -35,8 +35,8 @@ const ANIMALS = [
   "wasp","weasel","whale","wolf","worm","wombat","wren","yak","zebra"
 ];
 
-const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
 export const generateGameId = () => {
-  return `${pick(ADJECTIVES)}_${pick(ANIMALS)}`;
+  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
+  return `${adj}_${animal}`;
 };

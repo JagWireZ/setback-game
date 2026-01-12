@@ -1,4 +1,4 @@
-export const generatePlayer = ({ playerName, seat }) => {
+export const generatePlayer = ({ playerName }) => {
   const playerId = crypto.randomUUID().slice(0, 8);
   const playerToken = crypto.randomUUID();
 
@@ -7,8 +7,8 @@ export const generatePlayer = ({ playerName, seat }) => {
       playerId,
       name: playerName,
       type: "human",
-      seat,
-      connected: true
+      connected: true,
+      joinedAt: Date.now()
     },
     playerToken
   };

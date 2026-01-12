@@ -1,17 +1,10 @@
-import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
-import { unmarshall } from "@aws-sdk/util-dynamodb";
-
 export const getItem = async ({ client, tableName, gameId }) => {
-  const res = await client.send(
-    new GetItemCommand({
+  const result = await client.send(
+    new client.commands.GetCommand({
       TableName: tableName,
-      Key: { gameId: { S: gameId } }
+      Key: { gameId }
     })
   );
 
-  if (!res.Item) {
-    throw new Error("Game not found");
-  }
-
-  return unmarshall(res.Item);
+  return result.Item || null;
 };

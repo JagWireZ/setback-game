@@ -1,50 +1,63 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { cleanState } from "./helpers/cleanState.mjs";
+// backend/lambda/index.mjs
 
-import { getItem } from "./data/getItem.mjs";
+// Action modules
+import * as createGame from "./actions/createGame.mjs";
+import * as joinGame from "./actions/joinGame.mjs";
+import * as startGame from "./actions/startGame.mjs";
+import * as deal from "./actions/deal.mjs";
+import * as submitBid from "./actions/submitBid.mjs";
+import * as playCard from "./actions/playCard.mjs";
+import * as postRound from "./actions/postRound.mjs";
+import * as deleteGame from "./actions/deleteGame.mjs";
+import * as reconnect from "./actions/reconnect.mjs";
+import * as getGame from "./actions/getGame.mjs";
 
-// Explicit action imports
-import { apply as createGame } from "./actions/createGame.mjs";
-import { apply as joinGame } from "./actions/joinGame.mjs";
-import { apply as deleteGame } from "./actions/deleteGame.mjs";
-import { apply as startGame } from "./actions/startGame.mjs";
-
+// Registry
 const ACTIONS = {
   createGame,
   joinGame,
+  startGame,
+  deal,
+  submitBid,
+  playCard,
+  postRound,
   deleteGame,
-  startGame
+  reconnect,
+  getGame
 };
 
-// Initialize DynamoDB client once
-const dynamo = {
-  client: new DynamoDBClient({}),
-  tableName: process.env.TABLE_NAME
-};
-
-// Safe body parsing
-const parseBody = (event) => {
-  let body = event.body;
-
-  if (typeof body === "string") {
-    try {
-      body = JSON.parse(body);
-    } catch {
-      throw new Error("Invalid JSON body");
-    }
-  }
-
-  if (!body || typeof body !== "object") {
-    throw new Error("Missing request body");
-  }
-
-  return body;
-};
+// Public actions do NOT require auth
+const PUBLIC_ACTIONS = new Set([
+  "createGame",
+  "joinGame"
+]);
 
 export const handler = async (event) => {
   try {
-    const body = parseBody(event);
+    //
+    // 1. Parse request
+    //
+    let body;
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Invalid JSON body" })
+      };
+    }
+
     const { action, payload, auth } = body;
+
+    //
+    // 2. Validate action
+    //
+    if (!action || typeof action !== "string") {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "Missing or invalid action" })
+      };
+    }
 
     const mod = ACTIONS[action];
     if (!mod) {
@@ -55,78 +68,36 @@ export const handler = async (event) => {
     }
 
     //
-    // 1. Actions that do NOT require loading existing state
+    // 3. Validate identity for protected actions
     //
-    if (action === "createGame" || action === "joinGame") {
-      const result = await mod({ payload, auth, dynamo });
-
-      return {
-        statusCode: 200,
-        body: JSON.stringify(result)
-      };
+    if (!PUBLIC_ACTIONS.has(action)) {
+      if (!auth || !auth.playerId || !auth.playerToken) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ error: "Missing player identity" })
+        };
+      }
     }
 
     //
-    // 2. All other actions require:
-    //    - loading DynamoDB item
-    //    - validating token
+    // 4. Dynamo context
     //
-    const gameId = payload?.gameId;
-
-    if (!gameId) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: "gameId is required" })
-      };
-    }
-
-    let item;
-    try {
-      item = await getItem({
-        client: dynamo.client,
-        tableName: dynamo.tableName,
-        gameId
-      });
-    } catch {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: "Game not found" })
-      };
-    }
-
-    const { priv } = item;
-
-    // Token validation
-    if (!auth || priv.playerTokens[auth.playerId] !== auth.playerToken) {
-      return {
-        statusCode: 403,
-        body: JSON.stringify({ error: "Invalid player token" })
-      };
-    }
+    const dynamo = {
+      client: globalThis.dynamoClient, // injected by Lambda bootstrap
+      tableName: process.env.TABLE_NAME
+    };
 
     //
-    // 3. Execute action
+    // 5. Execute action
     //
-    const result = await mod({ payload, auth, dynamo });
+    const result = await mod.apply({
+      payload,
+      auth,
+      dynamo
+    });
 
     //
-    // 4. If the action returned a state, clean it
-    //
-    if (result?.state) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          ...result,
-          state: cleanState({
-            state: result.state,
-            playerId: auth.playerId
-          })
-        })
-      };
-    }
-
-    //
-    // 5. Otherwise return raw result
+    // 6. Return result
     //
     return {
       statusCode: 200,
@@ -134,9 +105,13 @@ export const handler = async (event) => {
     };
 
   } catch (err) {
+    console.error("Lambda error:", err);
+
     return {
-      statusCode: 400,
-      body: JSON.stringify({ error: err.message })
+      statusCode: 500,
+      body: JSON.stringify({
+        error: err.message || "Internal server error"
+      })
     };
   }
 };
