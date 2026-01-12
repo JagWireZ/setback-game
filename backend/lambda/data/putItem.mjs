@@ -1,6 +1,8 @@
+import { PutCommand } from "@aws-sdk/lib-dynamodb";
+
 export const putItem = async ({ client, tableName, item }) => {
   await client.send(
-    new client.commands.PutCommand({
+    new PutCommand({
       TableName: tableName,
       Item: item
     })

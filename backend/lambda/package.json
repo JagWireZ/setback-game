@@ -10,6 +10,7 @@
     "publish": "tofu init && tofu apply -auto-approve"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.966.0"
+    "@aws-sdk/client-dynamodb": "^3.966.0",
+    "@aws-sdk/lib-dynamodb": "^3.966.0"
   }
 }

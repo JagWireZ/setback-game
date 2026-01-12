@@ -1,6 +1,8 @@
+import { DeleteCommand } from "@aws-sdk/lib-dynamodb";
+
 export const deleteItem = async ({ client, tableName, gameId }) => {
   await client.send(
-    new client.commands.DeleteCommand({
+    new DeleteCommand({
       TableName: tableName,
       Key: { gameId }
     })

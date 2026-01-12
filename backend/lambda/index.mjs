@@ -1,4 +1,5 @@
-// backend/lambda/index.mjs
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
 // Action modules
 import * as createGame from "./actions/createGame.mjs";
@@ -11,6 +12,14 @@ import * as postRound from "./actions/postRound.mjs";
 import * as deleteGame from "./actions/deleteGame.mjs";
 import * as reconnect from "./actions/reconnect.mjs";
 import * as getGame from "./actions/getGame.mjs";
+
+const raw = new DynamoDBClient({ region: process.env.AWS_REGION });
+
+globalThis.dynamoClient = DynamoDBDocumentClient.from(raw, {
+  marshallOptions: {
+    removeUndefinedValues: true
+  }
+});
 
 // Registry
 const ACTIONS = {
@@ -83,7 +92,7 @@ export const handler = async (event) => {
     // 4. Dynamo context
     //
     const dynamo = {
-      client: globalThis.dynamoClient, // injected by Lambda bootstrap
+      client: dynamoClient, // injected by Lambda bootstrap
       tableName: process.env.TABLE_NAME
     };
 

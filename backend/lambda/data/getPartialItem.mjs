@@ -1,3 +1,5 @@
+import { GetCommand } from "@aws-sdk/lib-dynamodb";
+
 export const getPartialItem = async ({
   client,
   tableName,
@@ -19,7 +21,7 @@ export const getPartialItem = async ({
     .join(", ");
 
   const result = await client.send(
-    new client.commands.GetCommand({
+    new GetCommand({
       TableName: tableName,
       Key: { gameId },
       ProjectionExpression,
@@ -27,5 +29,6 @@ export const getPartialItem = async ({
     })
   );
 
-  return result.Item || null;
+  if (!result.Item) return null;
+  return normalizeState(result.Item);
 };
