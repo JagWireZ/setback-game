@@ -1,11 +1,17 @@
 export const addPlayerToState = (state, player) => {
   const seat = state.players.length;
 
+  // Remove any undefined fields from the incoming player object
+  const sanitized = Object.fromEntries(
+    Object.entries(player).filter(([_, v]) => v !== undefined)
+  );
+
   const newPlayer = {
-    ...player,
+    playerId: sanitized.playerId,
+    name: sanitized.name,
     seat,
     connected: true,
-    type: player.type || "human"
+    type: sanitized.type ?? "human"
   };
 
   return {
@@ -14,28 +20,28 @@ export const addPlayerToState = (state, player) => {
     players: [...state.players, newPlayer],
 
     scores: {
-      ...state.scores,
-      [player.playerId]: 0
+      ...(state.scores || {}),
+      [newPlayer.playerId]: 0
     },
 
     bids: {
-      ...state.bids,
-      [player.playerId]: null
+      ...(state.bids || {}),
+      [newPlayer.playerId]: null
     },
 
     hands: {
-      ...state.hands,
-      [player.playerId]: []
+      ...(state.hands || {}),
+      [newPlayer.playerId]: []
     },
 
     initialHands: {
-      ...state.initialHands,
-      [player.playerId]: []
+      ...(state.initialHands || {}),
+      [newPlayer.playerId]: []
     },
 
     books: {
-      ...state.books,
-      [player.playerId]: 0
+      ...(state.books || {}),
+      [newPlayer.playerId]: 0
     }
   };
 };

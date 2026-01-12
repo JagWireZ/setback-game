@@ -30,7 +30,7 @@ export const isStep = (state, step) =>
 // 3. Turn validation
 //
 export const assertTurn = (state, playerId) => {
-  if (state.phase.turnPlayerId !== playerId) {
+  if (state.currentPlayerId !== playerId) {
     throw new Error("Not your turn");
   }
 };
@@ -39,8 +39,12 @@ export const assertTurn = (state, playerId) => {
 // 4. Hand validation
 //
 export const assertPlayerHasCard = (state, playerId, card) => {
-  const hand = state.cards.hands[playerId] || [];
-  if (!hand.includes(card)) {
+  const hand = state.hands[playerId] || [];
+  const exists = hand.some(
+    (c) => c.suit === card.suit && c.rank === card.rank
+  );
+
+  if (!exists) {
     throw new Error("Player does not have that card");
   }
 };
@@ -49,13 +53,13 @@ export const assertPlayerHasCard = (state, playerId, card) => {
 // 5. Follow-suit validation
 //
 export const assertFollowSuit = (state, playerId, card) => {
-  const table = state.cards.onTable;
-  if (table.length === 0) return; // no lead suit yet
+  const trick = state.trick;
+  if (trick.length === 0) return; // no lead suit yet
 
-  const leadSuit = table[0].card.suit;
-  const hand = state.cards.hands[playerId] || [];
+  const leadSuit = trick[0].card.suit;
+  const hand = state.hands[playerId] || [];
 
-  const hasLeadSuit = hand.some(c => c.suit === leadSuit);
+  const hasLeadSuit = hand.some((c) => c.suit === leadSuit);
   const isFollowingSuit = card.suit === leadSuit;
 
   if (hasLeadSuit && !isFollowingSuit) {
@@ -67,7 +71,8 @@ export const assertFollowSuit = (state, playerId, card) => {
 // 6. Bid validation
 //
 export const assertValidBid = (state, bid) => {
-  const maxBooks = state.options.gameRounds[state.phase.roundIndex];
+  const roundCode = state.options.gameRounds[state.phase.roundIndex];
+  const maxBooks = parseInt(roundCode, 10);
 
   if (typeof bid !== "number" || bid < 0 || bid > maxBooks) {
     throw new Error(`Bid must be between 0 and ${maxBooks}`);
@@ -93,5 +98,4 @@ export const assertCanAdvance = (state) => {
   if (!PHASES[state.phase.name]) {
     throw new Error(`Unknown phase: ${state.phase.name}`);
   }
-  // Additional checks can be added here if needed
 };
