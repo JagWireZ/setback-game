@@ -87,7 +87,7 @@ export const handler = async (event) => {
     // 4. Dynamo context
     //
     const dynamo = {
-      client: dynamoClient, // injected by Lambda bootstrap
+      client: globalThis.dynamoClient,
       tableName: process.env.TABLE_NAME
     };
 
