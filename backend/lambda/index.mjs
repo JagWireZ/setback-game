@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
+import { normalizeState } from "./helpers/normalizeState.mjs";
 
 // Action modules
 import * as createGame from "./actions/createGame.mjs";
@@ -14,7 +15,13 @@ import * as reconnect from "./actions/reconnect.mjs";
 import * as getGame from "./actions/getGame.mjs";
 
 const raw = new DynamoDBClient({ region: process.env.AWS_REGION });
-globalThis.dynamoClient = DynamoDBDocumentClient.from(raw);
+
+// 🔥 FIX: removeUndefinedValues enabled
+globalThis.dynamoClient = DynamoDBDocumentClient.from(raw, {
+  marshallOptions: {
+    removeUndefinedValues: true
+  }
+});
 
 // Registry
 const ACTIONS = {
@@ -31,10 +38,7 @@ const ACTIONS = {
 };
 
 // Public actions do NOT require auth
-const PUBLIC_ACTIONS = new Set([
-  "createGame",
-  "joinGame"
-]);
+const PUBLIC_ACTIONS = new Set(["createGame", "joinGame"]);
 
 export const handler = async (event) => {
   try {
@@ -94,18 +98,16 @@ export const handler = async (event) => {
     //
     // 5. Execute action
     //
-    const result = await mod.apply({
-      payload,
-      auth,
-      dynamo
-    });
+    const result = await mod.apply({ payload, auth, dynamo });
 
     //
-    // 6. Return result
+    // 6. Normalize + return
     //
+    const safe = normalizeState(result);
+
     return {
       statusCode: 200,
-      body: JSON.stringify(result)
+      body: JSON.stringify(safe)
     };
 
   } catch (err) {

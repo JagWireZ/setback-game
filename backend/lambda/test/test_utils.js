@@ -6,8 +6,18 @@ if (!LAMBDA_URL) {
   throw new Error("Missing LAMBDA_URL environment variable");
 }
 
+// Remove undefined values recursively
+const stripUndefined = (obj) => {
+  if (!obj || typeof obj !== "object") return obj;
+  const clean = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) clean[k] = stripUndefined(v);
+  }
+  return clean;
+};
+
 export const call = async (action, payload, auth = null) => {
-  const body = { action, payload, auth };
+  const body = stripUndefined({ action, payload, auth });
 
   const res = await fetch(LAMBDA_URL, {
     method: "POST",
